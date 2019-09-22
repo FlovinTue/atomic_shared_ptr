@@ -11,6 +11,8 @@ My take on an atomic shared pointer.
 
 - Does not (currently) support the use of differing memory orderings
 
+------
+
 
 Single header include atomic_shared_ptr.h, optionally atomic_shared_ptr.natvis for better debug viewing in Visual Studio
 
