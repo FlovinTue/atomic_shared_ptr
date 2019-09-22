@@ -703,11 +703,10 @@ inline void control_block_claim_custom_delete<T, Allocator, Deleter>::destroy()
 	Allocator alloc(this->myAllocator);
 
 	T* const ptrAddr(this->myPtr);
-	(*this).~control_block_claim_custom_delete<T, Allocator, Deleter>();
-
-	alloc.deallocate(reinterpret_cast<uint8_t*>(this), sizeof(decltype(*this)));
-
 	myDeleter(ptrAddr, alloc);
+
+	(*this).~control_block_claim_custom_delete<T, Allocator, Deleter>();
+	alloc.deallocate(reinterpret_cast<uint8_t*>(this), sizeof(decltype(*this)));
 }
 template <class T>
 struct disable_deduction
@@ -730,6 +729,8 @@ class ptr_base
 {
 public:
 	typedef std::uint32_t size_type;
+	typedef T value_type;
+	typedef Allocator allocator_type;
 
 	inline constexpr operator bool() const;
 
@@ -952,6 +953,8 @@ public:
 
 	inline explicit shared_ptr(T* object);
 	template <class Deleter>
+	inline explicit shared_ptr(T* object, Deleter&& deleter);
+	template <class Deleter>
 	inline explicit shared_ptr(T* object, Deleter&& deleter, Allocator& allocator);
 
 	~shared_ptr();
@@ -1024,6 +1027,16 @@ inline shared_ptr<T, Allocator>::shared_ptr(T * object)
 {
 	Allocator alloc;
 	this->myControlBlockStorage = create_control_block(object, alloc);
+	this->myPtr = this->to_object(this->myControlBlockStorage);
+}
+// The Deleter callable has signature void(T* obj, Allocator& alloc)
+template<class T, class Allocator>
+template<class Deleter>
+inline shared_ptr<T, Allocator>::shared_ptr(T* object, Deleter && deleter)
+	: shared_ptr<T, Allocator>()
+{
+	Allocator alloc;
+	this->myControlBlockStorage = create_control_block(object, std::forward<Deleter&&>(deleter), alloc);
 	this->myPtr = this->to_object(this->myControlBlockStorage);
 }
 // The Deleter callable has signature void(T* obj, Allocator& alloc)
