@@ -114,6 +114,8 @@ public:
 	inline shared_ptr<T, Allocator> exchange(const shared_ptr<T, Allocator>& with);
 	inline shared_ptr<T, Allocator> exchange(shared_ptr<T, Allocator>&& with);
 
+	inline uint8_t get_version() const;
+
 	inline shared_ptr<T, Allocator> unsafe_load();
 
 	inline shared_ptr<T, Allocator> unsafe_exchange(const shared_ptr<T, Allocator>& with);
@@ -124,6 +126,7 @@ public:
 
 	operator bool() const;
 	bool operator==(const aspdetail::ptr_base<T, Allocator>& other) const;
+	bool operator!=(const aspdetail::ptr_base<T, Allocator>& other) const;
 
 	size_type unsafe_use_count() const;
 
@@ -132,10 +135,10 @@ public:
 	T* unsafe_get_owned();
 	const T* unsafe_get_owned() const;
 
-	const aspdetail::control_block_base<T, Allocator>* unsafe_get_control_block() const;
-	aspdetail::control_block_base<T, Allocator>* unsafe_get_control_block();
-
 private:
+	inline constexpr aspdetail::control_block_base<T, Allocator>* get_control_block();
+	inline constexpr const aspdetail::control_block_base<T, Allocator>* get_control_block() const;
+
 	typedef typename aspdetail::compressed_storage compressed_storage;
 	typedef typename aspdetail::ptr_base<T, Allocator>::size_type size_type;
 
@@ -157,7 +160,6 @@ private:
 
 	inline void try_help_increment(compressed_storage expected);
 
-	inline constexpr aspdetail::control_block_base<T, Allocator>* get_control_block() const;
 	inline constexpr aspdetail::control_block_base<T, Allocator>* to_control_block(compressed_storage from) const;
 
 	friend class shared_ptr<T, Allocator>;
@@ -289,6 +291,12 @@ inline shared_ptr<T, Allocator> atomic_shared_ptr<T, Allocator>::exchange(shared
 	return shared_ptr<T, Allocator>(previous);
 }
 template<class T, class Allocator>
+inline uint8_t atomic_shared_ptr<T, Allocator>::get_version() const
+{
+	const compressed_storage storage(myStorage.load(std::memory_order_acquire));
+	return storage.myU8[aspdetail::STORAGE_BYTE_VERSION];
+}
+template<class T, class Allocator>
 inline shared_ptr<T, Allocator> atomic_shared_ptr<T, Allocator>::unsafe_load()
 {
 	return shared_ptr<T, Allocator>(unsafe_copy_internal());
@@ -351,15 +359,17 @@ inline const T * atomic_shared_ptr<T, Allocator>::unsafe_get_owned() const
 	}
 	return nullptr;
 }
+// Safe to get, unsafe to access
 template<class T, class Allocator>
-inline const aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::unsafe_get_control_block() const
+inline constexpr const aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::get_control_block() const
 {
-	return get_control_block();
+	return to_control_block(myStorage.load(std::memory_order_acquire));;
 }
+// Safe to get, unsafe to access
 template<class T, class Allocator>
-inline aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::unsafe_get_control_block()
+inline constexpr aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::get_control_block()
 {
-	return get_control_block();
+	return to_control_block(myStorage.load(std::memory_order_acquire));
 }
 template<class T, class Allocator>
 inline atomic_shared_ptr<T, Allocator>::operator bool() const
@@ -370,6 +380,11 @@ template<class T, class Allocator>
 inline bool atomic_shared_ptr<T, Allocator>::operator==(const aspdetail::ptr_base<T, Allocator>& other) const
 {
 	return !((myStorage.load(std::memory_order_acquire) ^ other.myControlBlockStorage.myU64) & aspdetail::Versioned_Ptr_Mask);
+}
+template<class T, class Allocator>
+inline bool atomic_shared_ptr<T, Allocator>::operator!=(const aspdetail::ptr_base<T, Allocator>& other) const
+{
+	return !operator==(other);
 }
 // ------------------------------------------------------------------------------------
 
@@ -390,7 +405,7 @@ inline bool atomic_shared_ptr<T, Allocator>::try_help_increment_and_try_swap(com
 
 	compressed_storage desired_(desired);
 	do {
-		const uint16_t copyRequests(expected.myU8[aspdetail::STORAGE_BYTE_COPYREQUEST]);
+		const uint8_t copyRequests(expected.myU8[aspdetail::STORAGE_BYTE_COPYREQUEST]);
 
 		if (controlBlock)
 			controlBlock->incref(copyRequests);
@@ -433,11 +448,6 @@ inline void atomic_shared_ptr<T, Allocator>::try_help_increment(compressed_stora
 	} while (
 		(expected_.myU64 & aspdetail::Versioned_Ptr_Mask) == initialPtrBlock.myU64 &&
 		expected_.myU8[aspdetail::STORAGE_BYTE_COPYREQUEST]);
-}
-template<class T, class Allocator>
-inline constexpr aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::get_control_block() const
-{
-	return to_control_block(myStorage.load(std::memory_order_acquire));
 }
 template<class T, class Allocator>
 inline constexpr aspdetail::control_block_base<T, Allocator>* atomic_shared_ptr<T, Allocator>::to_control_block(compressed_storage from) const
@@ -737,13 +747,13 @@ public:
 	inline constexpr bool operator==(const ptr_base<T, Allocator>& other) const;
 	inline constexpr bool operator!=(const ptr_base<T, Allocator>& other) const;
 
+	inline bool operator==(const atomic_shared_ptr<T, Allocator>& other) const;
+	inline bool operator!=(const atomic_shared_ptr<T, Allocator>& other) const;
+
 	inline constexpr explicit operator T*();
 	inline constexpr explicit operator const T*() const;
 
-	inline constexpr const control_block_base<T, Allocator>* get_control_block() const;
 	inline constexpr const T* get_owned() const;
-
-	inline constexpr control_block_base<T, Allocator>* get_control_block();
 	inline constexpr T* get_owned();
 
 	inline constexpr versioned_raw_ptr<T, Allocator> get_versioned_raw_ptr() const;
@@ -762,6 +772,9 @@ public:
 	inline T& operator[](size_type index);
 
 protected:
+	inline constexpr const control_block_base<T, Allocator>* get_control_block() const;
+	inline constexpr control_block_base<T, Allocator>* get_control_block();
+
 	inline constexpr ptr_base();
 	inline constexpr ptr_base(compressed_storage from);
 
@@ -809,6 +822,16 @@ inline constexpr bool ptr_base<T, Allocator>::operator==(const ptr_base<T, Alloc
 }
 template <class T, class Allocator>
 inline constexpr bool ptr_base<T, Allocator>::operator!=(const ptr_base<T, Allocator>& other) const
+{
+	return !operator==(other);
+}
+template<class T, class Allocator>
+inline bool ptr_base<T, Allocator>::operator==(const atomic_shared_ptr<T, Allocator>& other) const
+{
+	return other == *this;
+}
+template<class T, class Allocator>
+inline bool ptr_base<T, Allocator>::operator!=(const atomic_shared_ptr<T, Allocator>& other) const
 {
 	return !operator==(other);
 }
