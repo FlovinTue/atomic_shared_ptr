@@ -854,12 +854,12 @@ inline constexpr const T & ptr_base<T, Allocator>::operator*() const
 template <class T, class Allocator>
 inline const T & ptr_base<T, Allocator>::operator[](size_type index) const
 {
-	return(*get_owned())[index];
+	return get_owned()[index];
 }
 template <class T, class Allocator>
 inline T & ptr_base<T, Allocator>::operator[](size_type index)
 {
-	return(*get_owned())[index];
+	return get_owned()[index];
 }
 template <class T, class Allocator>
 inline constexpr bool operator==(std::nullptr_t /*aNullptr*/, const ptr_base<T, Allocator>& ptr)

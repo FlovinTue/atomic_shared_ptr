@@ -14,7 +14,7 @@
 
 int main()
 {
-		/*const uint32_t testArraySize(32);
+		const uint32_t testArraySize(32);
 		const uint32_t numThreads(8);
 		Tester<uint64_t, testArraySize, numThreads> tester(true, rand());
 	
@@ -59,7 +59,7 @@ int main()
 			<< referencetest
 			<< ". The number of threads used were " 
 			<< numThreads
-			<< std::endl;*/
+			<< std::endl;
 
 		using namespace gdul;
 
@@ -71,8 +71,7 @@ int main()
 		shared_ptr<int> fourth(third);
 		shared_ptr<int> fifth(std::move(fourth));
 		shared_ptr<int> sixth(new int(6));
-		// Deprecated
-		//shared_ptr<int> seventh(new int(7), [](int* arg) {delete arg; });	
+		shared_ptr<int> seventh(new int(7), [](int* arg, decltype(alloc)&) {delete arg; });	
 		shared_ptr<int> eighth(new int(8), [](int* arg, decltype(alloc)& alloc) { delete arg; alloc; }, alloc);
 		shared_ptr<int, std::allocator<uint8_t>> ninth(make_shared<int, std::allocator<uint8_t>>(alloc, 8));
 		shared_ptr<int, std::allocator<uint8_t>> tenth;
@@ -116,6 +115,14 @@ int main()
 		athirteenth.unsafe_get_versioned_raw_ptr();
 		athirteenthdes.get_versioned_raw_ptr();
 		
+		shared_ptr<int> fourteenth(new int[10]{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, [](int* obj, std::allocator<uint8_t>& /*alloc*/)
+		{
+			delete[] obj;
+		}, alloc);
+
+		const int access1(fourteenth[0]);
+		const int access5(fourteenth[4]);
+
 		// Removed tagging for now. Made things complicated
 
 		//const shared_ptr<int> preTag(athirteenth.load_and_tag());
