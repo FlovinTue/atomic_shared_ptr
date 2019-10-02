@@ -91,6 +91,7 @@ public:
 
 	inline constexpr atomic_shared_ptr();
 	inline constexpr atomic_shared_ptr(std::nullptr_t);
+	inline constexpr atomic_shared_ptr(std::nullptr_t, uint8_t version);
 
 	inline atomic_shared_ptr(const shared_ptr<T, Allocator>& from);
 	inline atomic_shared_ptr(shared_ptr<T, Allocator>&& from);
@@ -186,6 +187,11 @@ inline constexpr atomic_shared_ptr<T, Allocator>::atomic_shared_ptr()
 template<class T, class Allocator>
 inline constexpr atomic_shared_ptr<T, Allocator>::atomic_shared_ptr(std::nullptr_t)
 	: atomic_shared_ptr<T, Allocator>()
+{
+}
+template<class T, class Allocator>
+inline constexpr atomic_shared_ptr<T, Allocator>::atomic_shared_ptr(std::nullptr_t, uint8_t version)
+	: myStorage(0ULL | (uint64_t(version) << (aspdetail::STORAGE_BYTE_VERSION * 8)))
 {
 }
 template <class T, class Allocator>
@@ -772,6 +778,9 @@ public:
 	typedef T value_type;
 	typedef Allocator allocator_type;
 
+	inline constexpr ptr_base(std::nullptr_t);
+	inline constexpr ptr_base(std::nullptr_t, uint8_t version);
+
 	inline constexpr operator bool() const;
 
 	inline constexpr bool operator==(const ptr_base<T, Allocator>& other) const;
@@ -824,6 +833,17 @@ protected:
 template <class T, class Allocator>
 inline constexpr ptr_base<T, Allocator>::ptr_base()
 	: myPtr(nullptr)
+{
+}
+template<class T, class Allocator>
+inline constexpr ptr_base<T, Allocator>::ptr_base(std::nullptr_t)
+	: ptr_base<T, Allocator>()
+{
+}
+template<class T, class Allocator>
+inline constexpr ptr_base<T, Allocator>::ptr_base(std::nullptr_t, uint8_t version)
+	: myPtr(nullptr)
+	, myControlBlockStorage(0ULL | (uint64_t(version) << (STORAGE_BYTE_VERSION * 8)))
 {
 }
 template <class T, class Allocator>
@@ -998,11 +1018,12 @@ template <class T, class Allocator>
 class shared_ptr : public aspdetail::ptr_base<T, Allocator>
 {
 public:
-	inline constexpr shared_ptr();
+	inline constexpr shared_ptr() = default;
+
+	using aspdetail::ptr_base<T, Allocator>::ptr_base;
 
 	inline shared_ptr(const shared_ptr<T, Allocator>& other);
 	inline shared_ptr(shared_ptr<T, Allocator>&& other);
-	inline shared_ptr(std::nullptr_t);
 
 	inline explicit shared_ptr(T* object);
 	template <class Deleter>
@@ -1045,11 +1066,6 @@ private:
 	friend shared_ptr<T, Allocator> make_shared<T, Allocator>(Allocator&, Args&&...);
 };
 template<class T, class Allocator>
-inline constexpr shared_ptr<T, Allocator>::shared_ptr()
-	: aspdetail::ptr_base<T, Allocator>()
-{
-}
-template<class T, class Allocator>
 inline shared_ptr<T, Allocator>::~shared_ptr()
 {
 	aspdetail::control_block_base<T, Allocator>* const cb(this->get_control_block());
@@ -1062,11 +1078,6 @@ inline shared_ptr<T, Allocator>::shared_ptr(shared_ptr<T, Allocator>&& other)
 	: shared_ptr<T, Allocator>()
 {
 	operator=(std::move(other));
-}
-template<class T, class Allocator>
-inline shared_ptr<T, Allocator>::shared_ptr(std::nullptr_t)
-	: shared_ptr<T, Allocator>()
-{
 }
 template<class T, class Allocator>
 inline shared_ptr<T, Allocator>::shared_ptr(const shared_ptr<T, Allocator>& other)
@@ -1197,8 +1208,9 @@ template <class T, class Allocator>
 class versioned_raw_ptr : public aspdetail::ptr_base<T, Allocator>
 {
 public:
-	constexpr versioned_raw_ptr();
-	constexpr versioned_raw_ptr(std::nullptr_t);
+	inline constexpr versioned_raw_ptr() = default;
+
+	using aspdetail::ptr_base<T, Allocator>::ptr_base;
 
 	constexpr versioned_raw_ptr(versioned_raw_ptr<T, Allocator>&& other);
 	constexpr versioned_raw_ptr(const versioned_raw_ptr<T, Allocator>& other);
@@ -1220,16 +1232,6 @@ private:
 	friend class aspdetail::ptr_base<T, Allocator>;
 	friend class atomic_shared_ptr<T, Allocator>;
 };
-template<class T, class Allocator>
-inline constexpr versioned_raw_ptr<T, Allocator>::versioned_raw_ptr()
-	: aspdetail::ptr_base<T, Allocator>()
-{
-}
-template<class T, class Allocator>
-inline constexpr versioned_raw_ptr<T, Allocator>::versioned_raw_ptr(std::nullptr_t)
-	: versioned_raw_ptr<T, Allocator>()
-{
-}
 template<class T, class Allocator>
 inline constexpr versioned_raw_ptr<T, Allocator>::versioned_raw_ptr(versioned_raw_ptr<T, Allocator>&& other)
 	: versioned_raw_ptr()

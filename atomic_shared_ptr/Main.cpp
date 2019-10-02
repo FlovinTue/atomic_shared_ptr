@@ -123,6 +123,10 @@ int main()
 		const int access1(fourteenth[0]);
 		const int access5(fourteenth[4]);
 
+		shared_ptr<int> nulla(nullptr, uint8_t(5));
+		versioned_raw_ptr<int> nullb(nullptr, 10);
+		atomic_shared_ptr<int> nullc(nullptr, 15);
+
 		// Removed tagging for now. Made things complicated
 
 		//const shared_ptr<int> preTag(athirteenth.load_and_tag());
