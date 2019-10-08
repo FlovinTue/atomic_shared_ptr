@@ -123,6 +123,8 @@ int main()
 		const int access1(fourteenth[0]);
 		const int access5(fourteenth[4]);
 
+		shared_ptr<int[10]> fifteenth(make_shared<int[10]>(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+
 		shared_ptr<int> nulla(nullptr, uint8_t(5));
 		versioned_raw_ptr<int> nullb(nullptr, 10);
 		atomic_shared_ptr<int> nullc(nullptr, 15);

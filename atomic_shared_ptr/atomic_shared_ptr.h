@@ -681,7 +681,9 @@ template <class T, class Allocator>
 class control_block_make_shared : public control_block_base<T, Allocator>
 {
 public:
-	template <class ...Args>
+	template <class ...Args, class U = T, std::enable_if_t<std::is_array<U>::value>* = nullptr>
+	control_block_make_shared(Allocator& alloc, Args&& ...args);
+	template <class ...Args, class U = T, std::enable_if_t<!std::is_array<U>::value>* = nullptr>
 	control_block_make_shared(Allocator& alloc, Args&& ...args);
 
 	void destroy() override;
@@ -689,7 +691,14 @@ private:
 	T myOwned;
 };
 template<class T, class Allocator>
-template <class ...Args>
+template <class ...Args, class U, std::enable_if_t<std::is_array<U>::value>*>
+inline control_block_make_shared<T, Allocator>::control_block_make_shared(Allocator& alloc, Args&& ...args)
+	: control_block_base<T, Allocator>(&myOwned, alloc)
+	, myOwned{ std::forward<Args&&>(args)... }
+{
+}
+template<class T, class Allocator>
+template <class ...Args, class U, std::enable_if_t<!std::is_array<U>::value>*>
 inline control_block_make_shared<T, Allocator>::control_block_make_shared(Allocator& alloc, Args&& ...args)
 	: control_block_base<T, Allocator>(&myOwned, alloc)
 	, myOwned(std::forward<Args&&>(args)...)
