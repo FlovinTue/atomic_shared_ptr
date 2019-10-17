@@ -716,7 +716,6 @@ template<class T, class Allocator>
 inline void control_block_make_shared<T, Allocator>::destroy() noexcept
 {
 	Allocator alloc(this->myAllocator);
-	this->myPtr->~T();
 	(*this).~control_block_make_shared<T, Allocator>();
 	alloc.deallocate(reinterpret_cast<std::uint8_t*>(this), shared_ptr<T, Allocator>::alloc_size_make_shared());
 }
@@ -738,7 +737,7 @@ inline void control_block_claim<T, Allocator>::destroy() noexcept
 	Allocator alloc(this->myAllocator);
 
 	T* const ptrAddr(this->myPtr);
-	this->myPtr->~T();
+	ptrAddr->~T();
 	(*this).~control_block_claim<T, Allocator>();
 
 	alloc.deallocate(reinterpret_cast<std::uint8_t*>(this), sizeof(decltype(*this)));
@@ -767,8 +766,8 @@ inline void control_block_claim_custom_delete<T, Allocator, Deleter>::destroy() 
 
 	T* const ptrAddr(this->myPtr);
 	myDeleter(ptrAddr, alloc);
-
 	(*this).~control_block_claim_custom_delete<T, Allocator, Deleter>();
+
 	alloc.deallocate(reinterpret_cast<std::uint8_t*>(this), sizeof(decltype(*this)));
 }
 template <class T>
