@@ -107,7 +107,7 @@ public:
 	atomic_shared_ptr<T> myTestArray[ArraySize];
 	ReferenceComparison<T> myReferenceComparison[ArraySize];
 #endif
-	std::atomic_flag myWorkBlock;
+	std::atomic_bool myWorkBlock;
 
 	std::atomic<size_t> mySummary;
 
@@ -149,7 +149,7 @@ inline Tester<T, ArraySize, NumThreads>::~Tester()
 template<class T, uint32_t ArraySize, uint32_t NumThreads>
 inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bool aDoAssign, bool aDoReassign, bool aDoCASTest, bool aDoReferenceTest)
 {
-	myWorkBlock.clear();
+	myWorkBlock = false;
 
 	for (uint32_t thread = 0; thread < NumThreads; ++thread) {
 		if (aDoAssign) {
@@ -168,7 +168,7 @@ inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bo
 
 	Timer timer;
 
-	myWorkBlock.test_and_set();
+	myWorkBlock = true;
 
 	while (myWorker.HasUnfinishedTasks()) {
 		std::this_thread::yield();
@@ -184,7 +184,7 @@ inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bo
 template<class T, uint32_t ArraySize, uint32_t NumThreads>
 inline void Tester<T, ArraySize, NumThreads>::WorkAssign(uint32_t aArrayPasses)
 {
-	while (!myWorkBlock._My_flag) {
+	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
@@ -202,7 +202,7 @@ inline void Tester<T, ArraySize, NumThreads>::WorkAssign(uint32_t aArrayPasses)
 template<class T, uint32_t ArraySize, uint32_t NumThreads>
 inline void Tester<T, ArraySize, NumThreads>::WorkReassign(uint32_t aArrayPasses)
 {
-	while (!myWorkBlock._My_flag) {
+	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
@@ -221,7 +221,7 @@ template<class T, uint32_t ArraySize, uint32_t NumThreads>
 inline void Tester<T, ArraySize, NumThreads>::WorkReferenceTest(uint32_t aArrayPasses)
 {
 #ifndef ASP_MUTEX_COMPARE
-	while (!myWorkBlock._My_flag) {
+	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
@@ -243,7 +243,7 @@ template<class T, uint32_t ArraySize, uint32_t NumThreads>
 inline void Tester<T, ArraySize, NumThreads>::WorkCAS(uint32_t aArrayPasses)
 {
 
-	while (!myWorkBlock._My_flag) {
+	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
