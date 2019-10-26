@@ -11,4 +11,4 @@ My take on an atomic shared pointer.
 
 Single header include atomic_shared_ptr.h, optionally atomic_shared_ptr.natvis for better debug viewing in Visual Studio
 
-There are four different versions of compare_exchange_strong, two of which take raw_ptr as expected value. These are non-reference counted representations of shared_ptr/atomic_shared_ptr. The raw_ptr may be used if shared ownership is not needed of the expected out value, as the shared_ptr variants incur extra costs upon failure.
+There are eight different versions of compare_exchange_strong, four of which take raw_ptr as expected value. These are non-reference counted representations of shared_ptr/atomic_shared_ptr. raw_ptr may be used if shared ownership is not needed of the expected out value, as the shared_ptr variants incur extra costs upon failure.
