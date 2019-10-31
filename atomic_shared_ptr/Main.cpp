@@ -97,23 +97,23 @@ int main()
 		shared_ptr<int> atenthdes(make_shared<int>(1010));
 		const bool tenres = atenth.compare_exchange_strong(atenthexp, atenthdes);
 		
-		atomic_shared_ptr<int> aeleventh(make_shared<int>(11));
-		raw_ptr<int> aeleventhexp(aeleventh.unsafe_get_raw_ptr());
-		shared_ptr<int> aeleventhdes(make_shared<int>(1111));
-		const bool eleres = aeleventh.compare_exchange_strong(aeleventhexp, aeleventhdes);
+		//atomic_shared_ptr<int> aeleventh(make_shared<int>(11));
+		//raw_ptr<int> aeleventhexp(aeleventh.unsafe_get_raw_ptr());
+		//shared_ptr<int> aeleventhdes(make_shared<int>(1111));
+		//const bool eleres = aeleventh.compare_exchange_strong(aeleventhexp, aeleventhdes);
 		
 		atomic_shared_ptr<int> atwelfth(make_shared<int>(12));
 		shared_ptr<int> atwelfthexp(make_shared<int>(121));
 		shared_ptr<int> atwelfthdes(make_shared<int>(1212));
 		const bool twelres = atwelfth.compare_exchange_strong(atwelfthexp, atwelfthdes);
 		
-		atomic_shared_ptr<int> athirteenth(make_shared<int>(13));
-		raw_ptr<int> athirteenthexp(nullptr);
-		shared_ptr<int> athirteenthdes(make_shared<int>(131));
-		const bool thirtres = athirteenth.compare_exchange_strong(athirteenthexp, athirteenthdes);
+		//atomic_shared_ptr<int> athirteenth(make_shared<int>(13));
+		//raw_ptr<int> athirteenthexp(nullptr);
+		//shared_ptr<int> athirteenthdes(make_shared<int>(131));
+		//const bool thirtres = athirteenth.compare_exchange_strong(athirteenthexp, athirteenthdes);
 
-		athirteenth.unsafe_get_raw_ptr();
-		athirteenthdes.get_raw_ptr();
+		//athirteenth.unsafe_get_raw_ptr();
+		//athirteenthdes.get_raw_ptr();
 		
 		shared_ptr<int> fourteenth(new int[10]{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, [](int* obj, std::allocator<uint8_t>& /*alloc*/)
 		{

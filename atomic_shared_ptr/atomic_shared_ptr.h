@@ -107,11 +107,6 @@ public:
 	inline atomic_shared_ptr<T, Allocator>& operator=(const shared_ptr<T, Allocator>& from) noexcept;
 	inline atomic_shared_ptr<T, Allocator>& operator=(shared_ptr<T, Allocator>&& from) noexcept;
 
-	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, const shared_ptr<T, Allocator>& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, shared_ptr<T, Allocator>&& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-
-	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, const shared_ptr<T, Allocator>& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
-	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, shared_ptr<T, Allocator>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
 
 	inline bool compare_exchange_strong(shared_ptr<T, Allocator>& expected, const shared_ptr<T, Allocator>& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
 	inline bool compare_exchange_strong(shared_ptr<T, Allocator>& expected, shared_ptr<T, Allocator>&& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
@@ -154,6 +149,12 @@ public:
 	const T* unsafe_get_owned() const;
 
 private:
+	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, const shared_ptr<T, Allocator>& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
+	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, shared_ptr<T, Allocator>&& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
+
+	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, const shared_ptr<T, Allocator>& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
+	inline bool compare_exchange_strong(raw_ptr<T, Allocator>& expected, shared_ptr<T, Allocator>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
+	
 	template <class PtrType>
 	inline bool compare_exchange_strong(typename aspdetail::disable_deduction<PtrType>::type& expected, shared_ptr<T, Allocator>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
 

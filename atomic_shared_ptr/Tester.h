@@ -262,15 +262,15 @@ inline void Tester<T, ArraySize, NumThreads>::WorkCAS(uint32_t aArrayPasses)
 				throw std::runtime_error("output from expected do not correspond to CAS results");
 			}
 
-			shared_ptr<T> desired_(make_shared<T>());
-			shared_ptr<T> expected_(myTestArray[i].load());
-			raw_ptr<T> rawExpected(expected_);
-			raw_ptr<T> check_(expected_);
-			const bool resultb = myTestArray[i].compare_exchange_strong(rawExpected, std::move(desired_));
-
-			if (!(resultb == (rawExpected == check_))) {
-				throw std::runtime_error("output from expected do not correspond to CAS results");
-			}
+			//shared_ptr<T> desired_(make_shared<T>());
+			//shared_ptr<T> expected_(myTestArray[i].load());
+			//raw_ptr<T> rawExpected(expected_);
+			//raw_ptr<T> check_(expected_);
+			//const bool resultb = myTestArray[i].compare_exchange_strong(rawExpected, std::move(desired_));
+			//
+			//if (!(resultb == (rawExpected == check_))) {
+			//	throw std::runtime_error("output from expected do not correspond to CAS results");
+			//}
 
 #else
 			std::shared_ptr<T> desired_(std::make_shared<T>());
