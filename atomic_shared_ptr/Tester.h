@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ThreadPool.h"
-#include "atomic_shared_ptr.h"
+#include <atomic_shared_ptr.h>
 #include <random>
 #include <string>
 #include "Timer.h"
@@ -21,7 +21,7 @@ struct ReferenceComparison
 template <class T>
 struct MutextedWrapper
 {
-	std::shared_ptr<T> load() {
+	std::shared_ptr<T> load(std::memory_order) {
 		lock.lock();
 		std::shared_ptr<T> returnValue(ptr);
 		lock.unlock();
@@ -63,7 +63,7 @@ struct MutextedWrapper
 		ptr.reset();
 		lock.unlock();
 	}
-	bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired)
+	bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired, std::memory_order)
 	{
 		bool returnValue(false);
 		lock.lock();
@@ -81,7 +81,7 @@ struct MutextedWrapper
 };
 
 
-template <class T, uint32_t ArraySize, uint32_t NumThreads>
+template <class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
 class Tester
 {
 public:
@@ -89,13 +89,13 @@ public:
 	Tester(bool aDoInitializeArray = true, InitArgs && ...aArgs);
 	~Tester();
 
-	float Execute(uint32_t aArrayPasses, bool aDoAssign = true, bool aDoReassign = true, bool aDoCASTest = true, bool aDoReferenceTest = true);
+	float Execute(std::uint32_t aArrayPasses, bool aDoAssign = true, bool aDoReassign = true, bool aDoCASTest = true, bool aDoReferenceTest = true);
 
 
-	void WorkAssign(uint32_t aArrayPasses);
-	void WorkReassign(uint32_t aArrayPasses);
-	void WorkReferenceTest(uint32_t aArrayPasses);
-	void WorkCAS(uint32_t aArrayPasses);
+	void WorkAssign(std::uint32_t aArrayPasses);
+	void WorkReassign(std::uint32_t aArrayPasses);
+	void WorkReferenceTest(std::uint32_t aArrayPasses);
+	void WorkCAS(std::uint32_t aArrayPasses);
 
 	void CheckPointers() const;
 
@@ -115,7 +115,7 @@ public:
 	std::mt19937 myRng;
 };
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
 template<class ...InitArgs>
 inline Tester<T, ArraySize, NumThreads>::Tester(bool aDoInitializeArray, InitArgs && ...aArgs)
 	: myWorker(NumThreads)
@@ -125,7 +125,7 @@ inline Tester<T, ArraySize, NumThreads>::Tester(bool aDoInitializeArray, InitArg
 #endif
 {
 	if (aDoInitializeArray) {
-		for (uint32_t i = 0; i < ArraySize; ++i) {
+		for (std::uint32_t i = 0; i < ArraySize; ++i) {
 #ifndef ASP_MUTEX_COMPARE
 			myTestArray[i] = make_shared<T>(std::forward<InitArgs&&>(aArgs)...);
 			myReferenceComparison[i].myPtr = new T(std::forward<InitArgs&&>(aArgs)...);
@@ -136,22 +136,22 @@ inline Tester<T, ArraySize, NumThreads>::Tester(bool aDoInitializeArray, InitArg
 	}
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
 inline Tester<T, ArraySize, NumThreads>::~Tester()
 {
 #ifndef ASP_MUTEX_COMPARE
-	for (uint32_t i = 0; i < ArraySize; ++i) {
+	for (std::uint32_t i = 0; i < ArraySize; ++i) {
 		delete myReferenceComparison[i].myPtr;
 	}
 #endif
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
-inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bool aDoAssign, bool aDoReassign, bool aDoCASTest, bool aDoReferenceTest)
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
+inline float Tester<T, ArraySize, NumThreads>::Execute(std::uint32_t aArrayPasses, bool aDoAssign, bool aDoReassign, bool aDoCASTest, bool aDoReferenceTest)
 {
-	myWorkBlock = false;
+	myWorkBlock.store(false);
 
-	for (uint32_t thread = 0; thread < NumThreads; ++thread) {
+	for (std::uint32_t thread = 0; thread < NumThreads; ++thread) {
 		if (aDoAssign) {
 			myWorker.AddTask([this, aArrayPasses]() { WorkAssign(aArrayPasses); });
 		}
@@ -168,7 +168,7 @@ inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bo
 
 	Timer timer;
 
-	myWorkBlock = true;
+	myWorkBlock.store(true);
 
 	while (myWorker.HasUnfinishedTasks()) {
 		std::this_thread::yield();
@@ -181,44 +181,45 @@ inline float Tester<T, ArraySize, NumThreads>::Execute(uint32_t aArrayPasses, bo
 	return timer.GetTotalTime();
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
-inline void Tester<T, ArraySize, NumThreads>::WorkAssign(uint32_t aArrayPasses)
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
+inline void Tester<T, ArraySize, NumThreads>::WorkAssign(std::uint32_t aArrayPasses)
 {
 	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
-	for (uint32_t pass = 0; pass < aArrayPasses; ++pass) {
-		for (uint32_t i = 0; i < ArraySize; ++i) {
-			myTestArray[i] = 
+	for (std::uint32_t pass = 0; pass < aArrayPasses; ++pass) {
+		for (std::uint32_t i = 0; i < ArraySize; ++i) {
+			myTestArray[i]
 #ifdef ASP_MUTEX_COMPARE
-				std::
+				= std::make_shared<T>();
+#else
+				.store(make_shared<T>(), std::memory_order_relaxed);
 #endif
-				make_shared<T>();
 		}
 	}
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
-inline void Tester<T, ArraySize, NumThreads>::WorkReassign(uint32_t aArrayPasses)
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
+inline void Tester<T, ArraySize, NumThreads>::WorkReassign(std::uint32_t aArrayPasses)
 {
 	while (!myWorkBlock) {
 		std::this_thread::yield();
 	}
 
-	for (uint32_t pass = 0; pass < aArrayPasses; ++pass) {
-		for (uint32_t i = 0; i < ArraySize; ++i) {
-#ifndef CSP_MUTEX_COMPARE
-			myTestArray[i] = myTestArray[(i + myRng()) % ArraySize].load();
+	for (std::uint32_t pass = 0; pass < aArrayPasses; ++pass) {
+		for (std::uint32_t i = 0; i < ArraySize; ++i) {
+#ifndef ASP_MUTEX_COMPARE
+			myTestArray[i].store(myTestArray[(i + myRng()) % ArraySize].load(std::memory_order_relaxed), std::memory_order_relaxed);
 #else
-			myTestArray[i] = myTestArray[(i + myRng()) % ArraySize];
+			myTestArray[i] = myTestArray[(i + myRng()) % ArraySize].load(std::memory_order::memory_order_acquire);
 #endif
 		}
 	}
 
 }
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
-inline void Tester<T, ArraySize, NumThreads>::WorkReferenceTest(uint32_t aArrayPasses)
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
+inline void Tester<T, ArraySize, NumThreads>::WorkReferenceTest(std::uint32_t aArrayPasses)
 {
 #ifndef ASP_MUTEX_COMPARE
 	while (!myWorkBlock) {
@@ -227,8 +228,8 @@ inline void Tester<T, ArraySize, NumThreads>::WorkReferenceTest(uint32_t aArrayP
 
 	size_t localSum(0);
 
-	for (uint32_t pass = 0; pass < aArrayPasses; ++pass) {
-		for (uint32_t i = 0; i < ArraySize; ++i) {
+	for (std::uint32_t pass = 0; pass < aArrayPasses; ++pass) {
+		for (std::uint32_t i = 0; i < ArraySize; ++i) {
 			localSum += *myReferenceComparison[i].myPtr;
 			//localSum += *myTestArray[i];
 		}
@@ -239,8 +240,8 @@ inline void Tester<T, ArraySize, NumThreads>::WorkReferenceTest(uint32_t aArrayP
 #endif
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
-inline void Tester<T, ArraySize, NumThreads>::WorkCAS(uint32_t aArrayPasses)
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
+inline void Tester<T, ArraySize, NumThreads>::WorkCAS(std::uint32_t aArrayPasses)
 {
 
 	while (!myWorkBlock) {
@@ -249,33 +250,29 @@ inline void Tester<T, ArraySize, NumThreads>::WorkCAS(uint32_t aArrayPasses)
 
 	size_t localSum(0);
 
-	for (uint32_t pass = 0; pass < aArrayPasses; ++pass) {
-		for (uint32_t i = 0; i < ArraySize; ++i) {
+	for (std::uint32_t pass = 0; pass < aArrayPasses; ++pass) {
+		for (std::uint32_t i = 0; i < ArraySize; ++i) {
 
 #ifndef ASP_MUTEX_COMPARE
 			shared_ptr<T> desired(make_shared<T>());
-			shared_ptr<T> expected(myTestArray[i].load());
+			shared_ptr<T> expected(myTestArray[i].load(std::memory_order_relaxed));
 			raw_ptr<T> check(expected);
-			const bool resulta = myTestArray[i].compare_exchange_strong(expected, std::move(desired));
+			const bool resulta = myTestArray[i].compare_exchange_strong(expected, std::move(desired), std::memory_order_relaxed);
 
-			if (!(resulta == (expected == check))) {
+			shared_ptr<T> desired_(make_shared<T>());
+			shared_ptr<T> expected_(myTestArray[i].load(std::memory_order_relaxed));
+			raw_ptr<T> rawExpected(expected_);
+			raw_ptr<T> check_(expected_);
+			const bool resultb = myTestArray[i].compare_exchange_strong(rawExpected, std::move(desired_), std::memory_order_relaxed);
+
+			if (!(resultb == (rawExpected == check_))) {
 				throw std::runtime_error("output from expected do not correspond to CAS results");
 			}
 
-			//shared_ptr<T> desired_(make_shared<T>());
-			//shared_ptr<T> expected_(myTestArray[i].load());
-			//raw_ptr<T> rawExpected(expected_);
-			//raw_ptr<T> check_(expected_);
-			//const bool resultb = myTestArray[i].compare_exchange_strong(rawExpected, std::move(desired_));
-			//
-			//if (!(resultb == (rawExpected == check_))) {
-			//	throw std::runtime_error("output from expected do not correspond to CAS results");
-			//}
-
 #else
 			std::shared_ptr<T> desired_(std::make_shared<T>());
-			std::shared_ptr<T> expected_(myTestArray[i].load());
-			const bool resultb = myTestArray[i].compare_exchange_strong(expected_, std::move(desired_));
+			std::shared_ptr<T> expected_(myTestArray[i].load(std::memory_order_acquire));
+			const bool resultb = myTestArray[i].compare_exchange_strong(expected_, std::move(desired_), std::memory_order_acquire);
 #endif
 		}
 	}
@@ -283,12 +280,12 @@ inline void Tester<T, ArraySize, NumThreads>::WorkCAS(uint32_t aArrayPasses)
 	mySummary += localSum;
 }
 
-template<class T, uint32_t ArraySize, uint32_t NumThreads>
+template<class T, std::uint32_t ArraySize, std::uint32_t NumThreads>
 inline void Tester<T, ArraySize, NumThreads>::CheckPointers() const
 {
 #ifndef ASP_MUTEX_COMPARE
 	//uint32_t count(0);
-	//for (uint32_t i = 0; i < ArraySize; ++i) {
+	//for (std::uint32_t i = 0; i < ArraySize; ++i) {
 	//	const gdul::aspdetail::control_block_base<T, gdul::aspdetail::default_allocator>* const controlBlock(myTestArray[i].unsafe_get_control_block());
 	//	const T* const directObject(myTestArray[i].unsafe_get_owned());
 	//	const T* const sharedObject(controlBlock->get_owned());
