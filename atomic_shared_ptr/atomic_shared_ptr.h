@@ -102,8 +102,8 @@ enum STORAGE_BYTE : std::uint8_t
 enum CAS_FLAG : std::uint8_t
 {
 	CAS_FLAG_NONE = 0,
-	CAS_FLAG_CAPTURE_ON_FAILURE,
-	CAS_FLAG_STEAL_PREVIOUS,
+	CAS_FLAG_CAPTURE_ON_FAILURE = 1 << 0,
+	CAS_FLAG_STEAL_PREVIOUS = 1 << 1,
 };
 }
 template <class T>
@@ -1177,7 +1177,6 @@ public:
 	static constexpr std::size_t alloc_size_claim_custom_delete() noexcept;
 
 
-	inline constexpr shared_ptr(union aspdetail::compressed_storage from) noexcept;
 
 private:
 	inline void fill_local_refs() noexcept;
@@ -1185,7 +1184,7 @@ private:
 	constexpr void reset() noexcept;
 
 	using compressed_storage = aspdetail::compressed_storage;
-
+	inline constexpr shared_ptr(union aspdetail::compressed_storage from) noexcept;
 
 	template<class Deleter, class Allocator>
 	inline compressed_storage create_control_block(T* object, Deleter&& deleter, Allocator& allocator);
@@ -1194,6 +1193,9 @@ private:
 
 	friend class raw_ptr<T>;
 	friend class atomic_shared_ptr<T>;
+
+	template <class U, class Allocator, class ...Args>
+	friend shared_ptr<U> make_shared(Allocator&, Args&&...);
 
 	T* myPtr;
 };
