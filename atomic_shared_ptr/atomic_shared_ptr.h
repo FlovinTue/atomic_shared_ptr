@@ -937,7 +937,8 @@ struct alignas(Align) aligned_storage
 template<class T>
 constexpr void assert_alignment(std::uint8_t* block)
 {
-#if _HAS_CXX17
+	
+#if 201700 < __cplusplus || _HAS_CXX17
 	if ((std::uintptr_t)block % alignof(T) != 0) {
 		throw std::runtime_error("conforming with C++17 make_shared expects alignof(T) allocates");
 	}
@@ -1461,7 +1462,7 @@ inline shared_ptr<T>& shared_ptr<T>::operator=(shared_ptr<T>&& other) noexcept
 	std::swap(this->myPtr, other.myPtr);
 	return *this;
 }
-#if _HAS_CXX17
+#if 201700 < __cplusplus || _HAS_CXX17
 template<class T>
 template <class Allocator>
 inline constexpr std::size_t shared_ptr<T>::alloc_size_make_shared() noexcept
