@@ -1454,7 +1454,6 @@ template<class T>
 inline shared_ptr<T>& shared_ptr<T>::operator=(const shared_ptr<T>& other) noexcept
 {
 	compressed_storage copy(other.myControlBlockStorage);
-	copy.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = 0;
 
 	if (aspdetail::control_block_base_interface<T>* const copyCb = this->to_control_block(copy)) {
 #ifndef GDUL_SP_SAFE_COPY
