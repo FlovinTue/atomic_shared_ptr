@@ -155,21 +155,29 @@ public:
 	inline bool compare_exchange_strong(shared_ptr<T>& expected, const shared_ptr<T>& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
 	inline bool compare_exchange_strong(shared_ptr<T>& expected, shared_ptr<T>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
 
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(raw_ptr<T>& expected, const shared_ptr<T>& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(raw_ptr<T>& expected, shared_ptr<T>&& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(raw_ptr<T>& expected, const shared_ptr<T>& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(raw_ptr<T>& expected, shared_ptr<T>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(shared_ptr<T>& expected, const shared_ptr<T>& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(shared_ptr<T>& expected, shared_ptr<T>&& desired, std::memory_order order = std::memory_order_seq_cst) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(shared_ptr<T>& expected, const shared_ptr<T>& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
-	// compare_exchange_weak may fail if another thread loads this value while attempting swap
+	// compare_exchange_weak may fail spuriously if another thread loads this value while attempting a swap, 
+	// in addition to the regular compare_exchange_weak internal spurious failure
 	inline bool compare_exchange_weak(shared_ptr<T>& expected, shared_ptr<T>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept;
 
 	inline shared_ptr<T> load(std::memory_order order = std::memory_order_seq_cst) const noexcept;
@@ -373,14 +381,14 @@ inline bool atomic_shared_ptr<T>::compare_exchange_strong(typename aspdetail::di
 
 	typedef typename std::remove_reference<PtrType>::type raw_type;
 
-	const bool needsCapture(std::is_same<raw_type, shared_ptr<T>>::value);
-	const std::uint8_t flags(aspdetail::CAS_FLAG_CAPTURE_ON_FAILURE * static_cast<std::uint8_t>(needsCapture));
+	constexpr bool needsCapture(std::is_same<raw_type, shared_ptr<T>>::value);
+	const std::uint8_t flags(aspdetail::CAS_FLAG_CAPTURE_ON_FAILURE * needsCapture);
 
 	const std::uint64_t preCompare(expected_.myU64 & aspdetail::Versioned_Ptr_Mask);
 	do {
 		if (compare_exchange_weak_internal(expected_, desired_, static_cast<aspdetail::CAS_FLAG>(flags), orders)) {
 
-			desired.reset();
+			desired.clear();
 
 			return true;
 		}
@@ -396,7 +404,7 @@ template<class PtrType>
 inline bool atomic_shared_ptr<T>::compare_exchange_weak(typename aspdetail::disable_deduction<PtrType>::type& expected, shared_ptr<T>&& desired, std::memory_order successOrder, std::memory_order failOrder) noexcept
 {
 	if (desired.get_local_refs() < aspdetail::Local_Ref_Fill_Boundary)
-		desired.set_local_refs();
+		desired.set_local_refs(std::numeric_limits<std::uint8_t>::max());
 
 	const compressed_storage desired_(desired.myControlBlockStorage.myU64);
 	compressed_storage expected_(myStorage.load(std::memory_order_relaxed));
@@ -407,26 +415,24 @@ inline bool atomic_shared_ptr<T>::compare_exchange_weak(typename aspdetail::disa
 
 	typedef typename std::remove_reference<PtrType>::type raw_type;
 
-	const bool needsCapture(std::is_same<raw_type, shared_ptr<T>>::value);
-	const std::uint8_t flags(aspdetail::CAS_FLAG_CAPTURE_ON_FAILURE * static_cast<std::uint8_t>(needsCapture));
+	constexpr bool needsCapture(std::is_same<raw_type, shared_ptr<T>>::value);
+	const std::uint8_t flags(aspdetail::CAS_FLAG_CAPTURE_ON_FAILURE * needsCapture);
 
 	const std::uint64_t preCompare(expected_.myU64 & aspdetail::Versioned_Ptr_Mask);
 
 	if (compare_exchange_weak_internal(expected_, desired_, static_cast<aspdetail::CAS_FLAG>(flags), orders)) {
 
-		desired.reset();
+		desired.clear();
 
 		return true;
 	}
 
 	const std::uint64_t postCompare(expected_.myU64 & aspdetail::Versioned_Ptr_Mask);
 
-	if (preCompare == postCompare) {
-		std::atomic_thread_fence(orders.mySecond);
-		return false;
+	// Failed, but not spuriously (other thread loaded, or compare_exchange_weak spurious fail)
+	if (preCompare != postCompare) {
+		expected = raw_type(expected_);
 	}
-
-	expected = raw_type(expected_);
 
 	return false;
 }
@@ -459,7 +465,7 @@ inline void atomic_shared_ptr<T>::store(shared_ptr<T>&& from, std::memory_order 
 		from.set_local_refs(std::numeric_limits<std::uint8_t>::max());
 
 	store_internal(from.myControlBlockStorage.myU64, order);
-	from.reset();
+	from.clear();
 }
 template<class T>
 inline shared_ptr<T> atomic_shared_ptr<T>::exchange(const shared_ptr<T>& with, std::memory_order order) noexcept
@@ -473,7 +479,7 @@ inline shared_ptr<T> atomic_shared_ptr<T>::exchange(shared_ptr<T>&& with, std::m
 		with.set_local_refs(std::numeric_limits<std::uint8_t>::max());
 
 	compressed_storage previous(exchange_internal(with.myControlBlockStorage, aspdetail::CAS_FLAG_STEAL_PREVIOUS, order));
-	with.reset();
+	with.clear();
 	return shared_ptr<T>(previous);
 }
 template<class T>
@@ -496,7 +502,7 @@ template<class T>
 inline shared_ptr<T> atomic_shared_ptr<T>::unsafe_exchange(shared_ptr<T>&& with, std::memory_order order)
 {
 	const compressed_storage previous(unsafe_exchange_internal(with.myControlBlockStorage, order));
-	with.reset();
+	with.clear();
 	return shared_ptr<T>(previous);
 }
 template<class T>
@@ -508,7 +514,7 @@ template<class T>
 inline void atomic_shared_ptr<T>::unsafe_store(shared_ptr<T>&& from, std::memory_order order)
 {
 	unsafe_store_internal(from.myControlBlockStorage, order);
-	from.reset();
+	from.clear();
 }
 template<class T>
 inline raw_ptr<T> atomic_shared_ptr<T>::get_raw_ptr() const noexcept
@@ -992,7 +998,7 @@ protected:
 	inline constexpr ptr_base() noexcept;
 	inline constexpr ptr_base(compressed_storage from) noexcept;
 
-	inline void reset() noexcept;
+	inline void clear() noexcept;
 
 	constexpr control_block_base_interface<T>* to_control_block(compressed_storage from) noexcept;
 	constexpr T* to_object(compressed_storage from) noexcept;
@@ -1028,7 +1034,7 @@ inline constexpr ptr_base<T>::ptr_base(compressed_storage from) noexcept
 	myControlBlockStorage.myU8[STORAGE_BYTE_LOCAL_REF] *= operator bool();
 }
 template<class T>
-inline void ptr_base<T>::reset() noexcept
+inline void ptr_base<T>::clear() noexcept
 {
 	myControlBlockStorage = compressed_storage();
 }
@@ -1068,22 +1074,22 @@ inline typename ptr_base<T>::size_type ptr_base<T>::use_count() const noexcept
 }
 
 template <class T>
-inline constexpr bool operator==(std::nullptr_t /*aNullptr*/, const ptr_base<T>& ptr) noexcept
+inline constexpr bool operator==(std::nullptr_t /*null*/, const ptr_base<T>& ptr) noexcept
 {
 	return !ptr;
 }
 template <class T>
-inline constexpr bool operator!=(std::nullptr_t /*aNullptr*/, const ptr_base<T>& ptr) noexcept
+inline constexpr bool operator!=(std::nullptr_t /*null*/, const ptr_base<T>& ptr) noexcept
 {
 	return ptr;
 }
 template <class T>
-inline constexpr bool operator==(const ptr_base<T>& ptr, std::nullptr_t /*aNullptr*/) noexcept
+inline constexpr bool operator==(const ptr_base<T>& ptr, std::nullptr_t /*null*/) noexcept
 {
 	return !ptr;
 }
 template <class T>
-inline constexpr bool operator!=(const ptr_base<T>& ptr, std::nullptr_t /*aNullptr*/) noexcept
+inline constexpr bool operator!=(const ptr_base<T>& ptr, std::nullptr_t /*null*/) noexcept
 {
 	return ptr;
 }
@@ -1155,20 +1161,20 @@ public:
 
 	~shared_ptr() noexcept;
 
-	inline constexpr explicit operator T* () noexcept; // redefine
-	inline constexpr explicit operator const T* () const noexcept; // redefine
+	inline constexpr explicit operator T* () noexcept; 
+	inline constexpr explicit operator const T* () const noexcept; 
 
-	inline constexpr const T* get_owned() const noexcept; // redefine
-	inline constexpr T* get_owned() noexcept; // redefine
+	inline constexpr const T* get_owned() const noexcept; 
+	inline constexpr T* get_owned() noexcept; 
 
-	inline constexpr T* operator->(); // redefine
-	inline constexpr T& operator*(); // redefine
+	inline constexpr T* operator->();
+	inline constexpr T& operator*();
 
-	inline constexpr const T* operator->() const; // redefine
-	inline constexpr const T& operator*() const; // redefine
+	inline constexpr const T* operator->() const;
+	inline constexpr const T& operator*() const; 
 
-	inline const T& operator[](aspdetail::size_type index) const; // redefine
-	inline T& operator[](aspdetail::size_type index); // redefine
+	inline const T& operator[](aspdetail::size_type index) const; 
+	inline T& operator[](aspdetail::size_type index); 
 
 	inline constexpr raw_ptr<T> get_raw_ptr() const noexcept;
 
@@ -1192,14 +1198,14 @@ public:
 
 	// Adjusts the amount of local refs kept for fast copies. Setting this to 1
 	// means a copy operation will not attempt to modify local state, and thus is
-	// concurrency safe. Use of local refs may be completely disabled via define 
-	// GDUL_SP_SAFE_COPY
+	// concurrency safe(so long as the object remains unaltered). 
+	// Use of local refs may be completely disabled via define GDUL_SP_SAFE_COPY
 	inline void set_local_refs(std::uint8_t target) noexcept;
 
 	inline constexpr std::uint8_t get_local_refs() const noexcept;
 private:
 
-	constexpr void reset() noexcept;
+	constexpr void clear() noexcept;
 
 	using compressed_storage = aspdetail::compressed_storage;
 	inline constexpr shared_ptr(union aspdetail::compressed_storage from) noexcept;
@@ -1294,10 +1300,10 @@ inline shared_ptr<T>::shared_ptr(T* object, Deleter&& deleter, Allocator& alloca
 	this->myPtr = this->to_object(this->myControlBlockStorage);
 }
 template<class T>
-inline constexpr void shared_ptr<T>::reset() noexcept
+inline constexpr void shared_ptr<T>::clear() noexcept
 {
 	myPtr = nullptr;
-	aspdetail::ptr_base<T>::reset();
+	aspdetail::ptr_base<T>::clear();
 }
 template<class T>
 inline void shared_ptr<T>::set_local_refs(std::uint8_t target) noexcept
@@ -1313,6 +1319,7 @@ inline void shared_ptr<T>::set_local_refs(std::uint8_t target) noexcept
 		}
 
 		this->myControlBlockStorage.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = target;
+		this->myControlBlockStorage.myU64 *= (bool)target;
 		myPtr = (T*)((uint64_t)myPtr * (bool)target);
 	}
 }
@@ -1594,7 +1601,6 @@ template<class T>
 inline constexpr raw_ptr<T>& raw_ptr<T>::operator=(const raw_ptr<T>& other)  noexcept
 {
 	this->myControlBlockStorage = other.myControlBlockStorage;
-	this->myPtr = other.myPtr;
 
 	return *this;
 }
@@ -1675,7 +1681,7 @@ template<class T, class ...Args>
 inline shared_ptr<T> make_shared(Args&& ...args)
 {
 	aspdetail::default_allocator alloc;
-	return make_shared<T>(alloc, std::forward<Args&&>(args)...);
+	return make_shared<T, aspdetail::default_allocator>(alloc, std::forward<Args&&>(args)...);
 }
 template<class T, class Allocator, class ...Args>
 inline shared_ptr<T> make_shared(Args&& ...args)
