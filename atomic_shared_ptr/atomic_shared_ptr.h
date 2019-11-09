@@ -1710,8 +1710,8 @@ inline shared_ptr<T> make_shared(Allocator& allocator, Args&& ...args)
 		if (controlBlock) {
 			(*controlBlock).~control_block_make_shared();
 		}
-		throw;
 		rebound.deallocate(typedBlock, 1);
+		throw;
 	}
 
 	aspdetail::compressed_storage storage(reinterpret_cast<std::uint64_t>(controlBlock));
