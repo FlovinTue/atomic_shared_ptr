@@ -253,7 +253,7 @@ private:
 };
 template <class T>
 inline constexpr atomic_shared_ptr<T>::atomic_shared_ptr() noexcept
-	: myStorage(0ULL)
+	: myStorage(0ULL | (std::uint64_t(std::numeric_limits<std::uint8_t>::max()) << (aspdetail::STORAGE_BYTE_LOCAL_REF * 8)))
 {
 }
 template<class T>
@@ -263,7 +263,7 @@ inline constexpr atomic_shared_ptr<T>::atomic_shared_ptr(std::nullptr_t) noexcep
 }
 template<class T>
 inline constexpr atomic_shared_ptr<T>::atomic_shared_ptr(std::nullptr_t, std::uint8_t version) noexcept
-	: myStorage(0ULL | (std::uint64_t(version) << (aspdetail::STORAGE_BYTE_VERSION * 8)))
+	: myStorage(0ULL | (std::uint64_t(version) << (aspdetail::STORAGE_BYTE_VERSION * 8)) | (std::uint64_t(std::numeric_limits<std::uint8_t>::max()) << (aspdetail::STORAGE_BYTE_LOCAL_REF * 8)))
 {
 }
 template <class T>
@@ -644,10 +644,6 @@ inline void atomic_shared_ptr<T>::try_fill_local_refs(compressed_storage& expect
 
 	aspdetail::control_block_base_interface<T>* const cb(to_control_block(expected));
 
-	if (!cb) {
-		return;
-	}
-
 	const compressed_storage initialPtrBlock(expected.myU64 & aspdetail::Versioned_Ptr_Mask);
 
 	do {
@@ -657,14 +653,18 @@ inline void atomic_shared_ptr<T>::try_fill_local_refs(compressed_storage& expect
 		compressed_storage desired(expected);
 		desired.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = std::numeric_limits<std::uint8_t>::max();
 
-		cb->incref(newRefs);
+		if (!cb){
+			cb->incref(newRefs);
+		}
 
 		if (myStorage.compare_exchange_weak(expected.myU64, desired.myU64, std::memory_order_relaxed)) {
-			expected.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = std::numeric_limits<std::uint8_t>::max();
 			return;
 		}
 
-		cb->decref(newRefs);
+		if (!cb){
+			cb->decref(newRefs);
+		}	
+
 
 	} while (
 		(expected.myU64 & aspdetail::Versioned_Ptr_Mask) == initialPtrBlock.myU64 &&
@@ -740,10 +740,12 @@ inline void atomic_shared_ptr<T>::unsafe_fill_local_refs() const noexcept
 	const compressed_storage current(myStorage.load(std::memory_order_relaxed));
 	aspdetail::control_block_base_interface<T>* const cb(to_control_block(current));
 
-	if (cb && current.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] < aspdetail::Local_Ref_Fill_Boundary) {
+	if (current.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] < aspdetail::Local_Ref_Fill_Boundary) {
 		const std::uint8_t newRefs(std::numeric_limits<std::uint8_t>::max() - current.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF]);
 
-		cb->incref(newRefs);
+		if (cb){
+			cb->incref(newRefs);
+		}
 
 		compressed_storage newStorage(current);
 		newStorage.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = std::numeric_limits<std::uint8_t>::max();
@@ -1318,10 +1320,10 @@ inline void shared_ptr<T>::set_local_refs(std::uint8_t target) noexcept
 			cb->decref(localRefs - target);
 		}
 
-		this->myControlBlockStorage.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = target;
 		this->myControlBlockStorage.myU64 *= (bool)target;
 		myPtr = (T*)((uint64_t)myPtr * (bool)target);
 	}
+	this->myControlBlockStorage.myU8[aspdetail::STORAGE_BYTE_LOCAL_REF] = target;
 }
 template <class T>
 inline constexpr std::uint8_t shared_ptr<T>::get_local_refs() const noexcept
